@@ -1,12 +1,14 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use image::{DynamicImage, ImageBuffer, Rgba};
 use image_hasher::{FilterType, HashAlg};
+use tempfile::TempDir;
 
 use crate::common::tool_data::CommonData;
 use crate::common::traits::Search;
-use crate::tools::similar_images::{SimilarImages, SimilarImagesParameters};
+use crate::tools::similar_images::{GeometricInvariance, SimilarImages, SimilarImagesParameters};
 
 fn get_test_resources_path() -> PathBuf {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_resources").join("images");
@@ -14,6 +16,19 @@ fn get_test_resources_path() -> PathBuf {
     assert!(path.exists(), "Test resources not found at \"{}\"", path.to_string_lossy());
 
     path
+}
+
+fn create_asymmetric_test_image(path: &Path) -> DynamicImage {
+    let mut img = ImageBuffer::from_pixel(32, 24, Rgba([0_u8, 0_u8, 0_u8, 255_u8]));
+    for x in 0..32 {
+        img.put_pixel(x, 0, Rgba([255_u8, 0_u8, 0_u8, 255_u8]));
+    }
+    img.put_pixel(5, 10, Rgba([0_u8, 255_u8, 0_u8, 255_u8]));
+    img.put_pixel(20, 18, Rgba([0_u8, 0_u8, 255_u8, 255_u8]));
+
+    let dynamic = DynamicImage::ImageRgba8(img);
+    dynamic.save(path).expect("Failed to save base test image");
+    dynamic
 }
 
 #[test]
@@ -42,7 +57,7 @@ fn test_similar_images() {
     ];
 
     for (idx, (hash_alg, filter_type, hash_size, similarity, duplicates, groups, all_in_similar)) in algo_filter_hash_sim_found.into_iter().enumerate() {
-        let params = SimilarImagesParameters::new(similarity, hash_size, hash_alg, filter_type, false);
+        let params = SimilarImagesParameters::new(similarity, hash_size, hash_alg, filter_type, false, GeometricInvariance::Off);
 
         let mut finder = SimilarImages::new(params);
         finder.set_included_paths(vec![test_path.clone()]);
@@ -69,7 +84,7 @@ fn test_similar_images() {
 fn test_similar_images_exclude_same_size() {
     let test_path = get_test_resources_path();
 
-    let params = SimilarImagesParameters::new(10, 8, HashAlg::Gradient, FilterType::Lanczos3, true);
+    let params = SimilarImagesParameters::new(10, 8, HashAlg::Gradient, FilterType::Lanczos3, true, GeometricInvariance::Off);
 
     let mut finder = SimilarImages::new(params);
     finder.set_included_paths(vec![test_path]);
@@ -99,7 +114,7 @@ fn test_similar_images_empty_directory() {
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path();
 
-    let params = SimilarImagesParameters::new(10, 8, HashAlg::Gradient, FilterType::Lanczos3, false);
+    let params = SimilarImagesParameters::new(10, 8, HashAlg::Gradient, FilterType::Lanczos3, false, GeometricInvariance::Off);
 
     let mut finder = SimilarImages::new(params);
     finder.set_included_paths(vec![path.to_path_buf()]);
@@ -115,4 +130,57 @@ fn test_similar_images_empty_directory() {
     assert_eq!(info.number_of_duplicates, 0);
     assert_eq!(info.number_of_groups, 0);
     assert_eq!(similar_images.len(), 0);
+}
+
+#[test]
+fn test_similar_images_mirror_flip_invariance() {
+    let temp_dir = TempDir::new().unwrap();
+    let base_path = temp_dir.path().join("base.png");
+    let flipped_path = temp_dir.path().join("flipped.png");
+
+    let base = create_asymmetric_test_image(&base_path);
+    base.fliph().save(&flipped_path).expect("Failed to save flipped image");
+
+    let params = SimilarImagesParameters::new(0, 8, HashAlg::Gradient, FilterType::Lanczos3, false, GeometricInvariance::MirrorFlip);
+    let mut finder = SimilarImages::new(params);
+    finder.set_included_paths(vec![temp_dir.path().to_path_buf()]);
+    finder.set_recursive_search(true);
+    finder.set_use_cache(false);
+
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    finder.search(&stop_flag, None);
+
+    let groups = finder.get_similar_images();
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].len(), 2);
+}
+
+#[test]
+fn test_similar_images_rotate_invariance() {
+    let temp_dir = TempDir::new().unwrap();
+    let base_path = temp_dir.path().join("base.png");
+    let rotated_path = temp_dir.path().join("rotated.png");
+
+    let base = create_asymmetric_test_image(&base_path);
+    base.rotate90().save(&rotated_path).expect("Failed to save rotated image");
+
+    let params = SimilarImagesParameters::new(
+        0,
+        8,
+        HashAlg::Gradient,
+        FilterType::Lanczos3,
+        false,
+        GeometricInvariance::MirrorFlipRotate90,
+    );
+    let mut finder = SimilarImages::new(params);
+    finder.set_included_paths(vec![temp_dir.path().to_path_buf()]);
+    finder.set_recursive_search(true);
+    finder.set_use_cache(false);
+
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    finder.search(&stop_flag, None);
+
+    let groups = finder.get_similar_images();
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].len(), 2);
 }
