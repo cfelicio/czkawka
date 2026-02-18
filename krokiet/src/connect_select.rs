@@ -796,4 +796,26 @@ mod tests {
         assert!(!biggest_model.row_data(1).unwrap().checked);
         assert!(!biggest_model.row_data(2).unwrap().checked);
     }
+
+    #[test]
+    fn test_select_by_property_date_tie_selects_nothing() {
+        let model_data = vec![
+            create_similar_images_row_with_all_metrics("", "", 10, 100, 0, false, true), // header
+            create_similar_images_row_with_all_metrics("/a", "a.jpg", 10, 100, 1234, false, false),
+            create_similar_images_row_with_all_metrics("/b", "b.jpg", 10, 100, 1234, false, false),
+        ];
+        let model = create_model_from_model_vec(&model_data);
+
+        let (checked_oldest, _unchecked_oldest, oldest_model) =
+            select_by_property(&model, crate::ActiveTab::SimilarImages, Property::Date, false);
+        assert_eq!(checked_oldest, 0);
+        assert!(!oldest_model.row_data(1).unwrap().checked);
+        assert!(!oldest_model.row_data(2).unwrap().checked);
+
+        let (checked_newest, _unchecked_newest, newest_model) =
+            select_by_property(&model, crate::ActiveTab::SimilarImages, Property::Date, true);
+        assert_eq!(checked_newest, 0);
+        assert!(!newest_model.row_data(1).unwrap().checked);
+        assert!(!newest_model.row_data(2).unwrap().checked);
+    }
 }
