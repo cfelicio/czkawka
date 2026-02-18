@@ -39,8 +39,8 @@ export component PopupSelectResults inherits Rectangle {
                     text: Translations.selection_custom_select_button_text;
                     height: item_height;
                     clicked => {
-                        popup_custom.show_popup(true);
                         popup_window.close();
+                        popup_custom.show_popup(true);
                     }
                 }
 
@@ -49,17 +49,16 @@ export component PopupSelectResults inherits Rectangle {
                     text: Translations.selection_custom_unselect_button_text;
                     height: item_height;
                     clicked => {
-                        popup_custom.show_popup(false);
                         popup_window.close();
+                        popup_custom.show_popup(false);
                     }
                 }
-
-                // embedded custom popup component
-                popup_custom := PopupCustomSelect { }
-
             }
         }
     }
+
+    // Keep custom popup outside select popup so closing select popup doesn't also close custom popup
+    popup_custom := PopupCustomSelect { }
 
     show_popup() => {
         popup_window.show();

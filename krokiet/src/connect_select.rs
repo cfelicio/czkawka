@@ -348,6 +348,7 @@ fn select_by_property(model: &ModelRc<SingleMainListModel>, active_tab: ActiveTa
 
             let mut max_item_idx = group_start;
             let mut max_item = extract_comparable_field(&old_data[max_item_idx], property, active_tab);
+            let mut is_tied = false;
 
             #[expect(clippy::needless_range_loop)]
             for j in (group_start + 1)..group_end {
@@ -355,8 +356,16 @@ fn select_by_property(model: &ModelRc<SingleMainListModel>, active_tab: ActiveTa
                 if item > max_item {
                     max_item = item;
                     max_item_idx = j;
+                    is_tied = false;
+                } else if item == max_item {
+                    is_tied = true;
                 }
             }
+
+            if is_tied {
+                continue;
+            }
+
             if !old_data[max_item_idx].checked {
                 checked_items += 1;
             }
@@ -372,6 +381,7 @@ fn select_by_property(model: &ModelRc<SingleMainListModel>, active_tab: ActiveTa
 
             let mut min_item_idx = group_start;
             let mut min_item = extract_comparable_field(&old_data[min_item_idx], property, active_tab);
+            let mut is_tied = false;
 
             #[expect(clippy::needless_range_loop)]
             for j in (group_start + 1)..group_end {
@@ -379,8 +389,16 @@ fn select_by_property(model: &ModelRc<SingleMainListModel>, active_tab: ActiveTa
                 if item < min_item {
                     min_item = item;
                     min_item_idx = j;
+                    is_tied = false;
+                } else if item == min_item {
+                    is_tied = true;
                 }
             }
+
+            if is_tied {
+                continue;
+            }
+
             if !old_data[min_item_idx].checked {
                 checked_items += 1;
             }
@@ -757,5 +775,25 @@ mod tests {
         assert!(shortest_model.row_data(1).unwrap().checked);
         assert!(!shortest_model.row_data(2).unwrap().checked);
         assert!(!shortest_model.row_data(3).unwrap().checked);
+    }
+
+    #[test]
+    fn test_select_by_property_tie_selects_nothing() {
+        let model_data = vec![
+            create_similar_images_row_with_all_metrics("", "", 10, 100, 0, false, true), // header
+            create_similar_images_row_with_all_metrics("/a", "a.jpg", 42, 100, 0, false, false),
+            create_similar_images_row_with_all_metrics("/b", "b.jpg", 42, 100, 0, false, false),
+        ];
+        let model = create_model_from_model_vec(&model_data);
+
+        let (checked_smallest, _unchecked_smallest, smallest_model) = select_by_property(&model, crate::ActiveTab::SimilarImages, Property::Size, false);
+        assert_eq!(checked_smallest, 0);
+        assert!(!smallest_model.row_data(1).unwrap().checked);
+        assert!(!smallest_model.row_data(2).unwrap().checked);
+
+        let (checked_biggest, _unchecked_biggest, biggest_model) = select_by_property(&model, crate::ActiveTab::SimilarImages, Property::Size, true);
+        assert_eq!(checked_biggest, 0);
+        assert!(!biggest_model.row_data(1).unwrap().checked);
+        assert!(!biggest_model.row_data(2).unwrap().checked);
     }
 }
