@@ -1,71 +1,151 @@
 import { PopupBase } from "popup_base.slint";
-import { LineEdit, CheckBox, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { LineEdit, CheckBox, Button, HorizontalBox } from "std-widgets.slint";
 import { Translations } from "translations.slint";
 import { Callabler } from "callabler.slint";
 
 export component PopupCustomSelect inherits Rectangle {
     out property <length> popup_width: 560px;
-    out property <length> popup_height: 300px;
+    out property <length> popup_height: 390px;
     in-out property <bool> select_mode: true;
+    in-out property <int> match_mode: 0; // 0-path, 1-name, 2-regex path+name
     callback show_popup(bool);
 
     popup_window := PopupBase {
-        title_text: select_mode ? Translations.selection_custom_select_title_text : Translations.selection_custom_unselect_title_text;
+        title_text: Translations.selection_custom_open_title_text;
         width: popup_width;
         height: popup_height;
         close-policy: PopupClosePolicy.close-on-click-outside;
         ok_text: Translations.selection_custom_apply_text;
-        enabled_ok_button: !check_regex.checked || (regex_pattern.text != "" && Callabler.validate_regex(regex_pattern.text));
+        enabled_ok_button: match_mode == 2
+            ? (regex_pattern.text != "" && Callabler.validate_regex(regex_pattern.text))
+            : (match_mode == 1 ? (name_pattern.text != "") : (path_pattern.text != ""));
 
         VerticalLayout {
-            spacing: 8px;
+            spacing: 10px;
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: 10px;
+            padding-bottom: 4px;
+
+            Text {
+                text: Translations.selection_custom_help_text;
+                wrap: word-wrap;
+            }
+
             HorizontalBox {
-                spacing: 8px;
-                check_path := CheckBox { text: Translations.selection_custom_path_text; checked: true; enabled: !check_regex.checked; }
-                check_name := CheckBox { text: Translations.selection_custom_name_text; checked: false; enabled: !check_regex.checked; }
-                check_regex := CheckBox {
-                    text: Translations.selection_custom_regex_path_name_text;
-                    checked: false;
+                spacing: 10px;
+                Text {
+                    text: Translations.selection_custom_action_mode_text;
+                    vertical-alignment: center;
+                }
+                action_unselect := CheckBox {
+                    text: Translations.selection_custom_action_unselect_text;
+                    checked: !select_mode;
                     toggled => {
-                        if (check_regex.checked) {
-                            check_path.checked = false;
-                            check_name.checked = false;
-                        }
+                        select_mode = !action_unselect.checked;
                     }
                 }
             }
 
-            path_pattern := LineEdit { placeholder-text: Translations.selection_custom_path_placeholder_text; enabled: !check_regex.checked; }
-            name_pattern := LineEdit { placeholder-text: Translations.selection_custom_name_placeholder_text; enabled: !check_regex.checked; }
-            regex_pattern := LineEdit { placeholder-text: Translations.selection_custom_regex_placeholder_text; enabled: check_regex.checked; }
+            Rectangle {
+                height: 1px;
+            }
+
+            HorizontalBox {
+                spacing: 8px;
+                Text {
+                    text: Translations.selection_custom_match_mode_text;
+                    vertical-alignment: center;
+                    min-width: 80px;
+                }
+                Button {
+                    text: match_mode == 0 ? "• " + Translations.selection_custom_path_text : Translations.selection_custom_path_text;
+                    min-width: 90px;
+                    clicked => {
+                        match_mode = 0;
+                    }
+                }
+
+                Button {
+                    text: match_mode == 1 ? "• " + Translations.selection_custom_name_text : Translations.selection_custom_name_text;
+                    min-width: 90px;
+                    clicked => {
+                        match_mode = 1;
+                    }
+                }
+
+                Button {
+                    text: match_mode == 2 ? "• " + Translations.selection_custom_regex_path_name_text : Translations.selection_custom_regex_path_name_text;
+                    min-width: 170px;
+                    clicked => {
+                        match_mode = 2;
+                    }
+                }
+            }
+
+            HorizontalBox {
+                spacing: 8px;
+                Text {
+                    text: Translations.selection_custom_path_text + " pattern";
+                    vertical-alignment: center;
+                    min-width: 120px;
+                }
+                path_pattern := LineEdit {
+                    horizontal-stretch: 1;
+                    placeholder-text: Translations.selection_custom_path_placeholder_text;
+                    enabled: match_mode == 0;
+                }
+            }
+
+            HorizontalBox {
+                spacing: 8px;
+                Text {
+                    text: Translations.selection_custom_name_text + " pattern";
+                    vertical-alignment: center;
+                    min-width: 120px;
+                }
+                name_pattern := LineEdit {
+                    horizontal-stretch: 1;
+                    placeholder-text: Translations.selection_custom_name_placeholder_text;
+                    enabled: match_mode == 1;
+                }
+            }
+
+            HorizontalBox {
+                spacing: 8px;
+                Text {
+                    text: "Regex pattern";
+                    vertical-alignment: center;
+                    min-width: 120px;
+                }
+                regex_pattern := LineEdit {
+                    horizontal-stretch: 1;
+                    placeholder-text: Translations.selection_custom_regex_placeholder_text;
+                    enabled: match_mode == 2;
+                }
+            }
 
             Text {
-                text: check_regex.checked
+                text: match_mode == 2
                     ? (regex_pattern.text == ""
                         ? Translations.selection_custom_regex_empty_text
                         : (Callabler.validate_regex(regex_pattern.text)
                             ? Translations.selection_custom_regex_valid_text
                             : Translations.selection_custom_regex_invalid_text))
                     : "";
+                min-height: 18px;
             }
 
             case_sensitive := CheckBox { text: Translations.selection_custom_case_sensitive_text; checked: false; }
             prevent_group_full := CheckBox { text: Translations.selection_custom_prevent_group_full_text; checked: true; enabled: select_mode; }
-
-            Rectangle { }
-
-            HorizontalLayout {
-                Rectangle { }
-                Button { text: "Cancel"; clicked => { popup_window.close(); } }
-            }
         }
 
         ok_clicked => {
             Callabler.custom_select(
                 select_mode,
-                check_path.checked,
-                check_name.checked,
-                check_regex.checked,
+                match_mode == 0,
+                match_mode == 1,
+                match_mode == 2,
                 case_sensitive.checked,
                 prevent_group_full.checked,
                 path_pattern.text,

@@ -12,7 +12,7 @@ export component PopupSelectResults inherits Rectangle {
     property <[SelectModel]> model: GuiState.select_results_list;
     property <length> item_height: 30px;
     out property <length> item_width;
-    out property <length> all_items_height: item_height * (model.length + 2);
+    out property <length> all_items_height: item_height * (model.length + 1);
 
     popup_window := PopupWindow {
         width <=> item_width;
@@ -34,23 +34,12 @@ export component PopupSelectResults inherits Rectangle {
                     }
                 }
 
-                // Custom select
                 Button {
-                    text: Translations.selection_custom_select_button_text;
+                    text: Translations.selection_custom_open_button_text;
                     height: item_height;
                     clicked => {
                         popup_window.close();
                         popup_custom.show_popup(true);
-                    }
-                }
-
-                // Custom unselect
-                Button {
-                    text: Translations.selection_custom_unselect_button_text;
-                    height: item_height;
-                    clicked => {
-                        popup_window.close();
-                        popup_custom.show_popup(false);
                     }
                 }
             }
