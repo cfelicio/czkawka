@@ -17,7 +17,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt update || true;sudo apt install -y mingw-w64 mingw-w64-x86-64-dev
+          sudo apt update || true
+          sudo apt install -y mingw-w64 mingw-w64-x86-64-dev wget wget2 curl wine || true
 
       - name: Setup rust version
         run: |
@@ -29,7 +30,7 @@ jobs:
         run: |
           sed -i 's/#lto = /lto = /g' Cargo.toml
           sed -i 's/#codegen-units /codegen-units /g' Cargo.toml
-          cargo build --release --target x86_64-pc-windows-gnu --bin krokiet
+          cargo build --release --target x86_64-pc-windows-gnu --bin krokiet --features "add_windows_icon"
           mv target/x86_64-pc-windows-gnu/release/krokiet.exe windows_krokiet_on_linux.exe
 
       - name: Compile Krokiet Debug
@@ -37,7 +38,7 @@ jobs:
         run: |
           sed -i 's/^\(\[profile\.dev\.package.*\)/#\1/' Cargo.toml
           sed -i 's|^opt-level = 3 # OPT PACKAGES|#opt-level = 3 # OPT PACKAGES|' Cargo.toml
-          cargo build --target x86_64-pc-windows-gnu --bin krokiet
+          cargo build --target x86_64-pc-windows-gnu --bin krokiet --features "add_windows_icon"
           mv target/x86_64-pc-windows-gnu/debug/krokiet.exe windows_krokiet_on_linux.exe
 
       - name: Pack with 7z
@@ -80,9 +81,9 @@ jobs:
           powershell -Command "(Get-Content Cargo.toml) -replace '#lto = ', 'lto = ' | Set-Content Cargo.toml"
           # Replace '#codegen-units ' with 'codegen-units ' in Cargo.toml
           powershell -Command "(Get-Content Cargo.toml) -replace '#codegen-units ', 'codegen-units ' | Set-Content Cargo.toml"
-          cargo build --release --bin krokiet --no-default-features --features "winit_skia_opengl,winit_software"
+          cargo build --release --bin krokiet --no-default-features --features "winit_skia_opengl,winit_software,add_windows_icon"
           mv target/release/krokiet.exe windows_krokiet_on_windows_skia_opengl.exe
-          cargo build --release --bin krokiet --no-default-features --features "winit_skia_vulkan,winit_software"
+          cargo build --release --bin krokiet --no-default-features --features "winit_skia_vulkan,winit_software,add_windows_icon"
           mv target/release/krokiet.exe windows_krokiet_on_windows_skia_vulkan.exe
 
       - name: Compile Krokiet Debug
@@ -92,8 +93,10 @@ jobs:
           powershell -Command "(Get-Content Cargo.toml) -replace '^\[profile\.dev\.package.*', { '#' + \$_ } | Set-Content Cargo.toml"
           # Comment out 'opt-level = 3 # OPT PACKAGES'
           powershell -Command "(Get-Content Cargo.toml) -replace '^opt-level = 3 # OPT PACKAGES', '#opt-level = 3 # OPT PACKAGES' | Set-Content Cargo.toml"
-          cargo build --bin krokiet --no-default-features --features "winit_skia_opengl,winit_software"
+          cargo build --bin krokiet --no-default-features --features "winit_skia_opengl,winit_software,add_windows_icon"
           mv target/debug/krokiet.exe windows_krokiet_on_windows_skia_opengl.exe
+          cargo build --bin krokiet --no-default-features --features "winit_skia_vulkan,winit_software,add_windows_icon"
+          mv target/debug/krokiet.exe windows_krokiet_on_windows_skia_vulkan.exe
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -123,20 +126,21 @@ jobs:
       - name: Install additional dependencies
         # gio is for the build script
         run: |
-          dnf install curl wget2 unzip mingw64-bzip2.noarch mingw64-poppler mingw64-poppler-glib mingw32-python3 rust-gio-devel adwaita-icon-theme -y && dnf clean all -y
+          dnf install curl wget2 wget unzip mingw64-bzip2.noarch mingw64-poppler mingw64-poppler-glib mingw32-python3 rust-gio-devel adwaita-icon-theme wine -y && dnf clean all -y
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source "$HOME/.cargo/env"
           rustup default 1.92.0
           rustup target add x86_64-pc-windows-gnu
           
           mkdir -p package
+          mkdir -p package_with_icon_tmp
 
       - name: Cross compile for Windows - Release
         if: ${{ github.ref == 'refs/heads/master' }}
         run: |
           source "$HOME/.cargo/env"
           export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/share/pkgconfig:$MINGW_PREFIX/lib/pkgconfig/:/usr/x86_64-w64-mingw32/lib/pkgconfig/
-          cargo build --target=x86_64-pc-windows-gnu --release --locked
+          cargo build --target=x86_64-pc-windows-gnu --release --locked --features "add_windows_icon"
           cp target/x86_64-pc-windows-gnu/release/czkawka_gui.exe package/
           cp target/x86_64-pc-windows-gnu/release/czkawka_cli.exe package/
 
@@ -145,7 +149,7 @@ jobs:
         run: |
           source "$HOME/.cargo/env"
           export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/share/pkgconfig:$MINGW_PREFIX/lib/pkgconfig/:/usr/x86_64-w64-mingw32/lib/pkgconfig/
-          cargo build --target=x86_64-pc-windows-gnu --locked --profile fastci
+          cargo build --target=x86_64-pc-windows-gnu --locked --profile fastci --features "add_windows_icon"
           cp target/x86_64-pc-windows-gnu/fastci/czkawka_gui.exe package/
           cp target/x86_64-pc-windows-gnu/fastci/czkawka_cli.exe package/
 

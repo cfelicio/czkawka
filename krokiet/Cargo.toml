@@ -1,6 +1,6 @@
 [package]
 name = "krokiet"
-version = "10.0.0"
+version = "11.0.0"
 authors = ["Rafał Mikrut <mikrutrafal@protonmail.com>"]
 edition = "2024"
 rust-version = "1.92.0"
@@ -11,7 +11,7 @@ repository = "https://github.com/qarmin/czkawka"
 build = "build.rs"
 
 [dependencies]
-czkawka_core = { version = "10.0.0", path = "../czkawka_core" }
+czkawka_core = { version = "11.0.0", path = "../czkawka_core" }
 chrono = "0.4.38"
 open = "5.3"
 crossbeam-channel = "0.5"
@@ -50,11 +50,13 @@ rodio = { version = "0.21.1", default-features = false, features = ["playback", 
 [build-dependencies]
 #slint-build = { path = "/home/rafal/test/slint/api/rs/build/"}
 #slint-build = { git = "https://github.com/slint-ui/slint.git" }
-slint-build = "1.15.0"
+slint-build = "1.15"
+winresource = "0.1"
 
 [features]
 default = ["winit_femtovg", "winit_software"]
 audio = ["rodio"]
+add_windows_icon = []
 skia_opengl = ["slint/renderer-skia-opengl"]
 skia_vulkan = ["slint/renderer-skia-vulkan"]
 software = ["slint/renderer-software"]

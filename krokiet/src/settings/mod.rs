@@ -353,15 +353,6 @@ pub(crate) fn set_combobox_custom_settings_items(settings: &Settings, custom_set
     let (idx, display_names) = StringComboBoxItems::get_item_and_idx_from_config_name(&custom_settings.video_optimizer_video_codec, &collected_items.video_optimizer_video_codec);
     settings.set_video_optimizer_sub_video_codec_index(idx as i32);
     settings.set_video_optimizer_sub_video_codec_value(display_names[idx].clone());
-
-    let codec_display_names = collected_items
-        .video_optimizer_video_codec
-        .iter()
-        .map(|e| e.display_name.clone().into())
-        .collect::<Vec<_>>();
-    let codec_config_value = collected_items.video_optimizer_video_codec[idx].config_name.clone();
-    settings.set_video_optimizer_sub_video_codec_config(ModelRc::new(VecModel::from(codec_display_names)));
-    settings.set_video_optimizer_sub_video_codec_config_value(codec_config_value.into());
 }
 
 pub(crate) fn set_settings_to_gui(app: &MainWindow, custom_settings: &SettingsCustom, base_settings: &BasicSettings, cli_args: Option<CliResult>) {
@@ -444,6 +435,9 @@ pub(crate) fn set_settings_to_gui(app: &MainWindow, custom_settings: &SettingsCu
     settings.set_video_thumbnails_percentage_min(DEFAULT_MIN_VIDEO_THUMBNAIL_POSITION_PERCENT as f32);
     settings.set_video_thumbnails_percentage_max(DEFAULT_MAX_VIDEO_THUMBNAIL_POSITION_PERCENT as f32);
     settings.set_video_thumbnails_generate_grid(custom_settings.video_thumbnails_generate_grid);
+    settings.set_video_thumbnails_grid_tiles_per_side(custom_settings.video_thumbnails_grid_tiles_per_side as f32);
+    settings.set_video_thumbnails_grid_tiles_per_side_min(2.0);
+    settings.set_video_thumbnails_grid_tiles_per_side_max(6.0);
 
     settings.set_similar_music_sub_approximate_comparison(custom_settings.similar_music_sub_approximate_comparison);
     settings.set_similar_music_sub_title(custom_settings.similar_music_sub_title);
@@ -603,6 +597,7 @@ pub(crate) fn collect_settings(app: &MainWindow) -> SettingsCustom {
     let video_thumbnails_generate = settings.get_video_thumbnails_generate();
     let video_thumbnails_percentage = settings.get_video_thumbnails_percentage().round() as u8;
     let video_thumbnails_generate_grid = settings.get_video_thumbnails_generate_grid();
+    let video_thumbnails_grid_tiles_per_side = settings.get_video_thumbnails_grid_tiles_per_side().round() as u8;
 
     let similar_music_sub_audio_check_type = combo_box_items.audio_check_type.config_name.clone();
     let similar_music_sub_approximate_comparison = settings.get_similar_music_sub_approximate_comparison();
@@ -746,6 +741,7 @@ pub(crate) fn collect_settings(app: &MainWindow) -> SettingsCustom {
         video_thumbnails_generate,
         video_thumbnails_percentage,
         video_thumbnails_generate_grid,
+        video_thumbnails_grid_tiles_per_side,
         video_optimizer_mode,
         video_optimizer_crop_type,
         video_optimizer_black_pixel_threshold,
