@@ -34,6 +34,66 @@ pub(crate) fn connect_select(app: &MainWindow) {
         active_tab.set_tool_model(&app, new_model);
         change_number_of_enabled_items(&app, active_tab, checked_items as i64 - unchecked_items as i64);
     });
+
+    // Custom select callback (opened from Slint popup)
+    app.global::<Callabler>().on_custom_select(move |is_path, pattern, use_rust_regex| {
+        let app = a.upgrade().expect("Failed to upgrade app :(");
+        let active_tab = app.global::<GuiState>().get_active_tab();
+        let current_model = active_tab.get_tool_model(&app);
+
+        let (checked_items, unchecked_items, new_model) = select_by_pattern(&current_model, active_tab, is_path, &pattern, use_rust_regex);
+        active_tab.set_tool_model(&app, new_model);
+        change_number_of_enabled_items(&app, active_tab, checked_items as i64 - unchecked_items as i64);
+    });
+
+// Select by wildcard or rust-regex (used by popup)
+fn select_by_pattern(model: &ModelRc<SingleMainListModel>, active_tab: ActiveTab, is_path: bool, pattern: &str, use_rust_regex: bool) -> SelectionResult {
+    let mut checked_items: u64 = 0;
+    let mut unchecked_items: u64 = 0;
+    let mut old_data = model.iter().collect::<Vec<_>>();
+
+    let wildcard_item = if !use_rust_regex { Some(czkawka_core::common::items::new_excluded_item(pattern)) } else { None };
+    let rust_regex = if use_rust_regex { regex::Regex::new(pattern).ok() } else { None };
+
+    for row in &mut old_data {
+        if row.header_row {
+            continue;
+        }
+
+        let mut target = String::new();
+        if is_path {
+            if let Some(p) = row.val_str.iter().nth(active_tab.get_str_path_idx()) {
+                target = p.to_string();
+            }
+        } else {
+            if let Some(n) = row.val_str.iter().nth(active_tab.get_str_name_idx()) {
+                target = n.to_string();
+            }
+        }
+
+        let is_match = if let Some(re) = &rust_regex {
+            re.find(&target).is_some()
+        } else if let Some(wi) = &wildcard_item {
+            czkawka_core::common::regex_check(wi, &target)
+        } else {
+            false
+        };
+
+        if is_match {
+            if !row.checked {
+                checked_items += 1;
+            }
+            row.checked = true;
+        } else {
+            if row.checked {
+                unchecked_items += 1;
+            }
+            row.checked = false;
+        }
+    }
+
+    (checked_items, unchecked_items, ModelRc::new(VecModel::from(old_data)))
+}
 }
 
 #[derive(Clone, Copy)]
@@ -308,5 +368,37 @@ mod tests {
         assert!(new_model.row_data(2).unwrap().checked);
         assert!(new_model.row_data(3).unwrap().checked);
         assert!(new_model.row_data(4).unwrap().checked);
+    }
+
+    #[test]
+    fn test_select_by_pattern_name_regex() {
+        let mut model = get_model_vec(4);
+        // set names so only row 2 contains "match"
+        model[1].val_str[model[1].val_str.len() - 1] = "nomatch".into();
+        model[2].val_str[model[2].val_str.len() - 1] = "file_match_name.jpg".into();
+        model[3].val_str[model[3].val_str.len() - 1] = "another".into();
+        let model = create_model_from_model_vec(&model);
+
+        let (checked_items, _unchecked, new_model) = select_by_pattern(&model, crate::ActiveTab::SimilarImages, false, "match", true);
+        assert_eq!(checked_items, 1);
+        assert!(!new_model.row_data(1).unwrap().checked);
+        assert!(new_model.row_data(2).unwrap().checked);
+        assert!(!new_model.row_data(3).unwrap().checked);
+    }
+
+    #[test]
+    fn test_select_by_pattern_path_wildcard() {
+        let mut model = get_model_vec(4);
+        // set paths so only row 3 has the subdir
+        model[1].val_str[0] = "/home/user/a".into();
+        model[2].val_str[0] = "/home/user/b/subdir/file.jpg".into();
+        model[3].val_str[0] = "/tmp/other".into();
+        let model = create_model_from_model_vec(&model);
+
+        let (checked_items, _unchecked, new_model) = select_by_pattern(&model, crate::ActiveTab::SimilarImages, true, "*/subdir/*", false);
+        assert_eq!(checked_items, 1);
+        assert!(!new_model.row_data(1).unwrap().checked);
+        assert!(new_model.row_data(2).unwrap().checked);
+        assert!(!new_model.row_data(3).unwrap().checked);
     }
 }

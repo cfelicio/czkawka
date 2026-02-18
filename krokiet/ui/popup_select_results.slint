@@ -31,6 +31,20 @@ export component PopupSelectResults inherits Rectangle {
                         popup_window.close();
                     }
                 }
+
+                // Custom selection (regex) — opens popup to accept pattern
+                Button {
+                    text: "Custom...";
+                    height: item_height;
+                    clicked => {
+                        popup_custom.show_popup();
+                        popup_window.close();
+                    }
+                }
+
+                // embedded custom popup component
+                popup_custom := PopupCustomSelect { }
+
             }
         }
     }

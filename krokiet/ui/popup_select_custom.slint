@@ -1,0 +1,30 @@
+import { PopupBase } from "popup_base.slint";
+import { LineEdit, CheckBox, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Translations } from "translations.slint";
+import { Callabler } from "callabler.slint";
+
+export component PopupCustomSelect inherits Rectangle {
+    out property <length> popup_width: 420px;
+    out property <length> popup_height: 160px;
+    callback show_popup();
+
+    popup_window := PopupBase {
+        width: popup_width;
+        height: popup_height;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        VerticalLayout {
+            spacing: 8px;
+            LineEdit { id: pattern; placeholder-text: "Enter pattern or regex"; }
+            CheckBox { id: check_rust; text: "Use Rust regex"; checked: true; }
+            CheckBox { id: check_path; text: "Match path (uncheck = name)"; checked: true; }
+
+            HorizontalBox { spacing: 8px; horizontal-alignment: end; 
+                Button { text: "Cancel"; clicked => { popup_window.close(); } }
+                Button { text: "Apply"; clicked => { Callabler.custom_select(check_path.checked, pattern.text, check_rust.checked); popup_window.close(); } }
+            }
+        }
+    }
+
+    show_popup() => { popup_window.show(); }
+}
