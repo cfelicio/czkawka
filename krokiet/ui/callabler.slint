@@ -25,7 +25,8 @@ export global Callabler {
 
     callback delete_selected_items();
     callback select_items(SelectMode);
-    callback custom_select(bool, string, bool); // (is_path, pattern, use_rust_regex)
+    callback custom_select(bool, bool, bool, bool, bool, bool, string, string, string); // (select_matches, check_path, check_name, check_regex_path_name, case_sensitive, prevent_select_all_in_group, path_pattern, name_pattern, regex_pattern)
+    pure callback validate_regex(string) -> bool;
     callback sort_items(SortMode);
 
     // Preview

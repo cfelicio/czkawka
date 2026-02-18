@@ -3,6 +3,8 @@ import { SelectModel } from "common.slint";
 import { Callabler } from "callabler.slint";
 import { ColorPalette } from "color_palette.slint";
 import { GuiState } from "gui_state.slint";
+import { PopupCustomSelect } from "popup_select_custom.slint";
+import { Translations } from "translations.slint";
 
 export component PopupSelectResults inherits Rectangle {
     callback show_popup();
@@ -10,7 +12,7 @@ export component PopupSelectResults inherits Rectangle {
     property <[SelectModel]> model: GuiState.select_results_list;
     property <length> item_height: 30px;
     out property <length> item_width;
-    out property <length> all_items_height: item_height * model.length;
+    out property <length> all_items_height: item_height * (model.length + 2);
 
     popup_window := PopupWindow {
         width <=> item_width;
@@ -32,12 +34,22 @@ export component PopupSelectResults inherits Rectangle {
                     }
                 }
 
-                // Custom selection (regex) — opens popup to accept pattern
+                // Custom select
                 Button {
-                    text: "Custom...";
+                    text: Translations.selection_custom_select_button_text;
                     height: item_height;
                     clicked => {
-                        popup_custom.show_popup();
+                        popup_custom.show_popup(true);
+                        popup_window.close();
+                    }
+                }
+
+                // Custom unselect
+                Button {
+                    text: Translations.selection_custom_unselect_button_text;
+                    height: item_height;
+                    clicked => {
+                        popup_custom.show_popup(false);
                         popup_window.close();
                     }
                 }

@@ -4,27 +4,79 @@ import { Translations } from "translations.slint";
 import { Callabler } from "callabler.slint";
 
 export component PopupCustomSelect inherits Rectangle {
-    out property <length> popup_width: 420px;
-    out property <length> popup_height: 160px;
-    callback show_popup();
+    out property <length> popup_width: 560px;
+    out property <length> popup_height: 300px;
+    in-out property <bool> select_mode: true;
+    callback show_popup(bool);
 
     popup_window := PopupBase {
+        title_text: select_mode ? Translations.selection_custom_select_title_text : Translations.selection_custom_unselect_title_text;
         width: popup_width;
         height: popup_height;
         close-policy: PopupClosePolicy.close-on-click-outside;
+        ok_text: Translations.selection_custom_apply_text;
+        enabled_ok_button: !check_regex.checked || (regex_pattern.text != "" && Callabler.validate_regex(regex_pattern.text));
 
         VerticalLayout {
             spacing: 8px;
-            LineEdit { id: pattern; placeholder-text: "Enter pattern or regex"; }
-            CheckBox { id: check_rust; text: "Use Rust regex"; checked: true; }
-            CheckBox { id: check_path; text: "Match path (uncheck = name)"; checked: true; }
-
-            HorizontalBox { spacing: 8px; horizontal-alignment: end; 
-                Button { text: "Cancel"; clicked => { popup_window.close(); } }
-                Button { text: "Apply"; clicked => { Callabler.custom_select(check_path.checked, pattern.text, check_rust.checked); popup_window.close(); } }
+            HorizontalBox {
+                spacing: 8px;
+                check_path := CheckBox { text: Translations.selection_custom_path_text; checked: true; enabled: !check_regex.checked; }
+                check_name := CheckBox { text: Translations.selection_custom_name_text; checked: false; enabled: !check_regex.checked; }
+                check_regex := CheckBox {
+                    text: Translations.selection_custom_regex_path_name_text;
+                    checked: false;
+                    toggled => {
+                        if (check_regex.checked) {
+                            check_path.checked = false;
+                            check_name.checked = false;
+                        }
+                    }
+                }
             }
+
+            path_pattern := LineEdit { placeholder-text: Translations.selection_custom_path_placeholder_text; enabled: !check_regex.checked; }
+            name_pattern := LineEdit { placeholder-text: Translations.selection_custom_name_placeholder_text; enabled: !check_regex.checked; }
+            regex_pattern := LineEdit { placeholder-text: Translations.selection_custom_regex_placeholder_text; enabled: check_regex.checked; }
+
+            Text {
+                text: check_regex.checked
+                    ? (regex_pattern.text == ""
+                        ? Translations.selection_custom_regex_empty_text
+                        : (Callabler.validate_regex(regex_pattern.text)
+                            ? Translations.selection_custom_regex_valid_text
+                            : Translations.selection_custom_regex_invalid_text))
+                    : "";
+            }
+
+            case_sensitive := CheckBox { text: Translations.selection_custom_case_sensitive_text; checked: false; }
+            prevent_group_full := CheckBox { text: Translations.selection_custom_prevent_group_full_text; checked: true; enabled: select_mode; }
+
+            Rectangle { }
+
+            HorizontalLayout {
+                Rectangle { }
+                Button { text: "Cancel"; clicked => { popup_window.close(); } }
+            }
+        }
+
+        ok_clicked => {
+            Callabler.custom_select(
+                select_mode,
+                check_path.checked,
+                check_name.checked,
+                check_regex.checked,
+                case_sensitive.checked,
+                prevent_group_full.checked,
+                path_pattern.text,
+                name_pattern.text,
+                regex_pattern.text
+            );
         }
     }
 
-    show_popup() => { popup_window.show(); }
+    show_popup(select_mode_new) => {
+        select_mode = select_mode_new;
+        popup_window.show();
+    }
 }

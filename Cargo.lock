@@ -4192,6 +4192,7 @@ dependencies = [
  "num_enum",
  "open",
  "rayon",
+ "regex",
  "rfd",
  "rodio",
  "rust-embed",
