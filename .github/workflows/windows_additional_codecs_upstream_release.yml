@@ -1,0 +1,176 @@
+name: Windows (additional codecs) - upstream release
+
+on:
+  schedule:
+    # Poll upstream releases regularly. Adjust as desired.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: "Upstream repo in owner/name form"
+        required: false
+        default: "qarmin/czkawka"
+      upstream_tag:
+        description: "Optional: build for this upstream tag instead of latest"
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  resolve-upstream:
+    name: Resolve upstream release
+    runs-on: ubuntu-latest
+    outputs:
+      upstream_repo: ${{ steps.meta.outputs.upstream_repo }}
+      upstream_tag: ${{ steps.meta.outputs.upstream_tag }}
+      upstream_url: ${{ steps.meta.outputs.upstream_url }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      should_build: ${{ steps.meta.outputs.should_build }}
+
+    steps:
+      - name: Resolve latest upstream release
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const upstreamRepo = ('${{ github.event.inputs.upstream_repo }}' || 'qarmin/czkawka').trim();
+            const requestedTag = ('${{ github.event.inputs.upstream_tag }}' || '').trim();
+
+            async function getReleaseByTag(owner, repo, tag) {
+              try {
+                const r = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+                return r.data;
+              } catch (e) {
+                if (e.status === 404) return null;
+                throw e;
+              }
+            }
+
+            const [upOwner, upName] = upstreamRepo.split('/');
+            if (!upOwner || !upName) {
+              core.setFailed(`Invalid upstream_repo: ${upstreamRepo}`);
+              return;
+            }
+
+            let release;
+            if (requestedTag) {
+              release = await getReleaseByTag(upOwner, upName, requestedTag);
+              if (!release) {
+                core.setFailed(`Upstream release tag not found: ${upstreamRepo}@${requestedTag}`);
+                return;
+              }
+            } else {
+              release = (await github.rest.repos.getLatestRelease({ owner: upOwner, repo: upName })).data;
+            }
+
+            const upstreamTag = release.tag_name;
+            const upstreamUrl = release.html_url;
+            const releaseTag = `additional-codecs-${upstreamTag}`;
+
+            // Check if this fork already has a release for that tag.
+            const [selfOwner, selfRepo] = process.env.GITHUB_REPOSITORY.split('/');
+            const existing = await getReleaseByTag(selfOwner, selfRepo, releaseTag);
+
+            core.setOutput('upstream_repo', upstreamRepo);
+            core.setOutput('upstream_tag', upstreamTag);
+            core.setOutput('upstream_url', upstreamUrl);
+            core.setOutput('release_tag', releaseTag);
+            core.setOutput('should_build', existing ? '0' : '1');
+
+            if (existing) {
+              core.notice(`Release already exists for ${releaseTag}; skipping build.`);
+            } else {
+              core.notice(`New upstream tag ${upstreamTag}; will build and publish ${releaseTag}.`);
+            }
+
+  build-and-release:
+    name: Build + publish additional codecs
+    needs: resolve-upstream
+    if: ${{ needs.resolve-upstream.outputs.should_build == '1' }}
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout (windows-additional-codecs branch)
+        uses: actions/checkout@v6
+        with:
+          ref: windows-additional-codecs
+
+      - name: Setup Rust
+        run: |
+          rustup default 1.94.1
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          choco install -y pkgconfiglite
+          git clone https://github.com/microsoft/vcpkg "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows libavif:x64-windows dav1d:x64-windows
+
+          "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PKG_CONFIG_PATH=$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Krokiet (heif+libraw+libavif)
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+          VCPKGRS_DYNAMIC: "1"
+          VCPKGRS_TRIPLET: x64-windows
+          VCPKG_DEFAULT_TRIPLET: x64-windows
+        run: |
+          $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
+          # libraw headers default to __declspec(dllimport) on MSVC; when building LibRaw from source we must disable that.
+          $env:CL = "$env:CL /DLIBRAW_NODLL /EHsc"
+          cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
+
+      - name: Package (bundle vcpkg DLLs)
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+        run: |
+          $upstreamTag = "${{ needs.resolve-upstream.outputs.upstream_tag }}"
+          $safeTag = $upstreamTag -replace '[^A-Za-z0-9._-]', '_'
+
+          $zip = "windows_krokiet_additional_codecs_${safeTag}.zip"
+          pwsh misc/pack_all_backends.ps1 -Binary target/release/krokiet.exe -OutputZip $zip
+
+          $pkgDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+          New-Item -ItemType Directory -Force $pkgDir | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $pkgDir -Force
+
+          Copy-Item "$env:VCPKG_ROOT\installed\x64-windows\bin\*.dll" $pkgDir -Force
+          Compress-Archive -Path (Join-Path $pkgDir "*") -DestinationPath $zip -Force
+          Remove-Item -Recurse -Force $pkgDir
+
+          "ZIP_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-upstream.outputs.release_tag }}
+          target_commitish: windows-additional-codecs
+          name: Windows additional codecs (${{ needs.resolve-upstream.outputs.upstream_tag }})
+          body: |
+            Automated build of Krokiet with additional codecs for Windows.
+
+            - Upstream: ${{ needs.resolve-upstream.outputs.upstream_repo }}
+            - Upstream release: ${{ needs.resolve-upstream.outputs.upstream_url }}
+            - Upstream tag: ${{ needs.resolve-upstream.outputs.upstream_tag }}
+
+            Notes:
+            - This build is produced from the windows-additional-codecs branch of this fork.
+            - If you want a byte-for-byte build of upstream sources, keep that branch synced with upstream.
+          files: |
+            ${{ env.ZIP_NAME }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-krokiet-additional-codecs-${{ needs.resolve-upstream.outputs.upstream_tag }}
+          path: |
+            ${{ env.ZIP_NAME }}
+          if-no-files-found: error

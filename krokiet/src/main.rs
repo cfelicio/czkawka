@@ -278,5 +278,12 @@ pub(crate) fn print_krokiet_features() {
     #[cfg(feature = "femtovg_wgpu")]
     features.push("femtovg_wgpu");
 
+    #[cfg(feature = "heif")]
+    features.push("heif");
+    #[cfg(feature = "libavif")]
+    features.push("libavif");
+    #[cfg(feature = "libraw")]
+    features.push("libraw");
+
     info!("Krokiet features({}): [{}]", features.len(), features.join(", "));
 }

@@ -30,7 +30,7 @@ jobs:
           "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "PKG_CONFIG_PATH=$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build Krokiet (heif+libraw)
+      - name: Build Krokiet (heif+libraw+libavif)
         shell: pwsh
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
@@ -48,7 +48,7 @@ jobs:
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
         run: |
-          $zip = "windows_krokiet_additional_codecs_heif_libraw.zip"
+          $zip = "windows_krokiet_additional_codecs_heif_libraw_libavif.zip"
           pwsh misc/pack_all_backends.ps1 -Binary target/release/krokiet.exe -OutputZip $zip
 
           $pkgDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
@@ -64,5 +64,5 @@ jobs:
         with:
           name: windows-krokiet-additional-codecs-${{ github.sha }}
           path: |
-            windows_krokiet_additional_codecs_heif_libraw.zip
+            windows_krokiet_additional_codecs_heif_libraw_libavif.zip
           if-no-files-found: error
