@@ -120,6 +120,9 @@ jobs:
             $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
             $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
 
+            # libraw headers default to __declspec(dllimport) on MSVC; when building LibRaw from source we must disable that.
+            $env:CL = "$env:CL /DLIBRAW_NODLL /EHsc"
+
             cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
             mv target/release/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe
           }
@@ -145,6 +148,9 @@ jobs:
             $env:VCPKGRS_TRIPLET = "x64-windows"
             $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
             $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
+
+            # libraw headers default to __declspec(dllimport) on MSVC; when building LibRaw from source we must disable that.
+            $env:CL = "$env:CL /DLIBRAW_NODLL /EHsc"
 
             cargo build --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
             mv target/debug/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe

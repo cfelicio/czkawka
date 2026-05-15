@@ -1,4 +1,4 @@
-name: 🧪 Windows (unofficial codecs)
+name: 🧪 Windows (additional codecs)
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  krokiet-unofficial-codecs:
+  krokiet-additional-codecs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -39,6 +39,8 @@ jobs:
           VCPKG_DEFAULT_TRIPLET: x64-windows
         run: |
           $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
+          # libraw headers default to __declspec(dllimport) on MSVC; when building LibRaw from source we must disable that.
+          $env:CL = "$env:CL /DLIBRAW_NODLL /EHsc"
           cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
 
       - name: Package (bundle vcpkg DLLs)
@@ -46,7 +48,7 @@ jobs:
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
         run: |
-          $zip = "windows_krokiet_unofficial_codecs_heif_libraw.zip"
+          $zip = "windows_krokiet_additional_codecs_heif_libraw.zip"
           pwsh misc/pack_all_backends.ps1 -Binary target/release/krokiet.exe -OutputZip $zip
 
           $pkgDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
@@ -60,7 +62,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: windows-krokiet-unofficial-codecs-${{ github.sha }}
+          name: windows-krokiet-additional-codecs-${{ github.sha }}
           path: |
-            windows_krokiet_unofficial_codecs_heif_libraw.zip
+            windows_krokiet_additional_codecs_heif_libraw.zip
           if-no-files-found: error
