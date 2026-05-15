@@ -94,10 +94,17 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout (windows-additional-codecs branch)
+      - name: Checkout upstream source (release tag)
         uses: actions/checkout@v6
         with:
-          ref: windows-additional-codecs
+          repository: ${{ needs.resolve-upstream.outputs.upstream_repo }}
+          ref: ${{ needs.resolve-upstream.outputs.upstream_tag }}
+          fetch-depth: 1
+
+      - name: Capture upstream commit SHA
+        shell: pwsh
+        run: |
+          "UPSTREAM_SHA=$(git rev-parse HEAD)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Rust
         run: |
@@ -152,7 +159,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve-upstream.outputs.release_tag }}
-          target_commitish: windows-additional-codecs
+          target_commitish: ${{ github.sha }}
           name: Windows additional codecs (${{ needs.resolve-upstream.outputs.upstream_tag }})
           body: |
             Automated build of Krokiet with additional codecs for Windows.
@@ -160,10 +167,11 @@ jobs:
             - Upstream: ${{ needs.resolve-upstream.outputs.upstream_repo }}
             - Upstream release: ${{ needs.resolve-upstream.outputs.upstream_url }}
             - Upstream tag: ${{ needs.resolve-upstream.outputs.upstream_tag }}
+            - Upstream commit: ${{ env.UPSTREAM_SHA }}
 
             Notes:
-            - This build is produced from the windows-additional-codecs branch of this fork.
-            - If you want a byte-for-byte build of upstream sources, keep that branch synced with upstream.
+            - This build is compiled from the upstream release tag source.
+            - The release tag in this fork is used only to publish the Windows codecs artifact.
           files: |
             ${{ env.ZIP_NAME }}
 
