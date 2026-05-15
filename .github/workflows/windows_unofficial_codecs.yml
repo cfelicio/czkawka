@@ -1,0 +1,61 @@
+name: 🧪 Windows (unofficial codecs)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/windows-unofficial-codecs
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  krokiet-unofficial-codecs:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        run: |
+          rustup default 1.94.1
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows
+
+      - name: Build Krokiet (heif+libraw)
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+          VCPKGRS_DYNAMIC: "1"
+          VCPKGRS_TRIPLET: x64-windows
+          VCPKG_DEFAULT_TRIPLET: x64-windows
+        run: |
+          cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw"
+
+      - name: Package (bundle vcpkg DLLs)
+        shell: pwsh
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+        run: |
+          $zip = "windows_krokiet_unofficial_codecs_heif_libraw.zip"
+          pwsh misc/pack_all_backends.ps1 -Binary target/release/krokiet.exe -OutputZip $zip
+
+          $pkgDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+          New-Item -ItemType Directory -Force $pkgDir | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $pkgDir -Force
+
+          Copy-Item "$env:VCPKG_ROOT\installed\x64-windows\bin\*.dll" $pkgDir -Force
+          Compress-Archive -Path (Join-Path $pkgDir "*") -DestinationPath $zip -Force
+          Remove-Item -Recurse -Force $pkgDir
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-krokiet-unofficial-codecs-${{ github.sha }}
+          path: |
+            windows_krokiet_unofficial_codecs_heif_libraw.zip
+          if-no-files-found: error
