@@ -84,9 +84,13 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/windows-additional-codecs' }}
         shell: pwsh
         run: |
+          choco install -y pkgconfiglite
           git clone https://github.com/microsoft/vcpkg "$env:GITHUB_WORKSPACE\vcpkg"
           & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
           & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows libavif:x64-windows dav1d:x64-windows
+
+          "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PKG_CONFIG_PATH=$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup rust version
         run: |
@@ -114,6 +118,7 @@ jobs:
             $env:VCPKGRS_DYNAMIC = "1"
             $env:VCPKGRS_TRIPLET = "x64-windows"
             $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+            $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
 
             cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
             mv target/release/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe
@@ -139,6 +144,7 @@ jobs:
             $env:VCPKGRS_DYNAMIC = "1"
             $env:VCPKGRS_TRIPLET = "x64-windows"
             $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+            $env:PKG_CONFIG_PATH = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig"
 
             cargo build --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
             mv target/debug/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe
