@@ -80,6 +80,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup vcpkg (additional codecs)
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/windows-additional-codecs' }}
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows libavif:x64-windows dav1d:x64-windows
+
       - name: Setup rust version
         run: |
           rustup default 1.94.1
@@ -100,6 +108,16 @@ jobs:
           mv target/release/krokiet.exe windows_krokiet_on_windows_femtovg_wgpu.exe
           cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu"
           mv target/release/krokiet.exe windows_krokiet_on_windows_all_backends.exe
+
+          if ("${{ github.ref }}" -eq "refs/heads/master" -or "${{ github.ref }}" -eq "refs/heads/windows-additional-codecs") {
+            $env:VCPKG_ROOT = "$env:GITHUB_WORKSPACE\vcpkg"
+            $env:VCPKGRS_DYNAMIC = "1"
+            $env:VCPKGRS_TRIPLET = "x64-windows"
+            $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+
+            cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
+            mv target/release/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe
+          }
           Get-ChildItem windows_krokiet_on_windows_*.exe | ForEach-Object { ./rcedit-x64.exe $_.Name --set-icon krokiet/icons/krokiet_logo_flag.ico }
 
       - name: Compile Krokiet Debug
@@ -115,11 +133,38 @@ jobs:
           mv target/debug/krokiet.exe windows_krokiet_on_windows_femtovg_wgpu.exe
           cargo build --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu"
           mv target/debug/krokiet.exe windows_krokiet_on_windows_all_backends.exe
+
+          if ("${{ github.ref }}" -eq "refs/heads/windows-additional-codecs") {
+            $env:VCPKG_ROOT = "$env:GITHUB_WORKSPACE\vcpkg"
+            $env:VCPKGRS_DYNAMIC = "1"
+            $env:VCPKGRS_TRIPLET = "x64-windows"
+            $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+
+            cargo build --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
+            mv target/debug/krokiet.exe windows_krokiet_on_windows_all_backends_codecs.exe
+          }
           
           Get-ChildItem windows_krokiet_on_windows_*.exe | ForEach-Object { ./rcedit-x64.exe $_.Name --set-icon krokiet/icons/krokiet_logo_flag.ico }
 
       - name: Package krokiet with launchers
         run: pwsh misc/pack_all_backends.ps1 -Binary windows_krokiet_on_windows_all_backends.exe -OutputZip windows_krokiet_on_windows_all_backends.zip
+
+      - name: Package Krokiet (additional codecs) with launchers
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/windows-additional-codecs' }}
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = "$env:GITHUB_WORKSPACE\vcpkg"
+          $zip = "windows_krokiet_on_windows_all_backends_codecs.zip"
+
+          pwsh misc/pack_all_backends.ps1 -Binary windows_krokiet_on_windows_all_backends_codecs.exe -OutputZip $zip
+
+          $pkgDir = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+          New-Item -ItemType Directory -Force $pkgDir | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $pkgDir -Force
+
+          Copy-Item "$env:VCPKG_ROOT\installed\x64-windows\bin\*.dll" $pkgDir -Force
+          Compress-Archive -Path (Join-Path $pkgDir "*") -DestinationPath $zip -Force
+          Remove-Item -Recurse -Force $pkgDir
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
@@ -127,6 +172,7 @@ jobs:
           name: krokiet-windows-on-windows-${{ github.sha }}
           path: |
             windows_krokiet_on_windows_all_backends.zip
+            windows_krokiet_on_windows_all_backends_codecs.zip
             windows_krokiet_on_windows_skia_opengl.exe
             windows_krokiet_on_windows_skia_vulkan.exe
             windows_krokiet_on_windows_femtovg_wgpu.exe
@@ -139,6 +185,7 @@ jobs:
           tag_name: "Nightly"
           files: |
             windows_krokiet_on_windows_all_backends.zip
+            windows_krokiet_on_windows_all_backends_codecs.zip
             windows_krokiet_on_windows_skia_opengl.exe
             windows_krokiet_on_windows_skia_vulkan.exe
             windows_krokiet_on_windows_femtovg_wgpu.exe

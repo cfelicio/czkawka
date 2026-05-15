@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/windows-unofficial-codecs
+      - windows-additional-codecs
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,7 +24,7 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg "$env:GITHUB_WORKSPACE\vcpkg"
           & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
-          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install libheif:x64-windows libraw:x64-windows libavif:x64-windows dav1d:x64-windows
 
       - name: Build Krokiet (heif+libraw)
         shell: pwsh
@@ -34,7 +34,7 @@ jobs:
           VCPKGRS_TRIPLET: x64-windows
           VCPKG_DEFAULT_TRIPLET: x64-windows
         run: |
-          cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw"
+          cargo build --release --bin krokiet --no-default-features --features "winit_femtovg,winit_skia_opengl,winit_skia_vulkan,winit_software,femtovg_wgpu,heif,libraw,libavif"
 
       - name: Package (bundle vcpkg DLLs)
         shell: pwsh
