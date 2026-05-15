@@ -222,5 +222,12 @@ pub(crate) fn print_krokiet_features() {
     #[cfg(feature = "winit_software")]
     features.push("winit_software");
 
+    #[cfg(feature = "heif")]
+    features.push("heif");
+    #[cfg(feature = "libavif")]
+    features.push("libavif");
+    #[cfg(feature = "libraw")]
+    features.push("libraw");
+
     info!("Krokiet features({}): [{}]", features.len(), features.join(", "));
 }
