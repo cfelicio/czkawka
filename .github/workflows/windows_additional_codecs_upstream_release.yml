@@ -121,6 +121,23 @@ jobs:
           "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "PKG_CONFIG_PATH=$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\lib\pkgconfig;$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows\share\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Work around yanked lofty 0.23 (if needed)
+        shell: pwsh
+        run: |
+          $patched = 0
+          $tomlPath = "czkawka_core/Cargo.toml"
+          if (Test-Path $tomlPath) {
+            $text = Get-Content $tomlPath -Raw
+            if ($text -match 'lofty\s*=\s*"0\.23"') {
+              Write-Host "Patching $tomlPath: lofty 0.23 -> 0.24"
+              $text = $text -replace 'lofty\s*=\s*"0\.23"', 'lofty = "0.24"'
+              Set-Content -Path $tomlPath -Value $text -Encoding utf8
+              cargo update -p lofty
+              $patched = 1
+            }
+          }
+          "LOFTY_PATCHED=$patched" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build Krokiet (heif+libraw+libavif)
         shell: pwsh
         env:
@@ -168,6 +185,7 @@ jobs:
             - Upstream release: ${{ needs.resolve-upstream.outputs.upstream_url }}
             - Upstream tag: ${{ needs.resolve-upstream.outputs.upstream_tag }}
             - Upstream commit: ${{ env.UPSTREAM_SHA }}
+            - Patched yanked lofty (0.23 -> 0.24): ${{ env.LOFTY_PATCHED }}
 
             Notes:
             - This build is compiled from the upstream release tag source.
