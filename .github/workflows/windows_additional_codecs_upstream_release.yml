@@ -129,7 +129,7 @@ jobs:
           if (Test-Path $tomlPath) {
             $text = Get-Content $tomlPath -Raw
             if ($text -match 'lofty\s*=\s*"0\.23"') {
-              Write-Host "Patching $tomlPath: lofty 0.23 -> 0.24"
+              Write-Host "Patching ${tomlPath}: lofty 0.23 -> 0.24"
               $text = $text -replace 'lofty\s*=\s*"0\.23"', 'lofty = "0.24"'
               Set-Content -Path $tomlPath -Value $text -Encoding utf8
               cargo update -p lofty
