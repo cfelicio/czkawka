@@ -11,6 +11,9 @@ flatpak/
 *.zst
 *.profraw
 *.profdata
+improvements.md
+improvementsfinal.md
+improvementsterra.md
 /lcov_report*
 /report
 ci_tester/target
